@@ -1,5 +1,4 @@
-local deco = require "kong.plugins.ice-grpc-gateway.dec"
-
+local decs = require "kong.plugins.ice-grpc-gateway.dec"
 local ngx = ngx
 local kong = kong
 local ngx_arg = ngx.arg
@@ -13,7 +12,7 @@ local kong_service_request_set_method = kong.service.request.set_method
 local kong_service_request_set_raw_body = kong.service.request.set_raw_body
 
 
-local grpc_gateway = {
+local ice_grpc_gateway = {
   PRIORITY = 999,
   VERSION = '0.0.1',
 }
@@ -26,14 +25,14 @@ local CORS_HEADERS = {
   ["Access-Control-Allow-Headers"] = "content-type",
 }
 
-function grpc_gateway:access(conf)
+function ice_grpc_gateway:access(conf)
   kong_response_set_header("Access-Control-Allow-Origin", "*")
 
   if kong_request_get_method() == "OPTIONS" then
     return kong_response_exit(200, "OK", CORS_HEADERS)
   end
 
-  local dec, err = dec.new(
+  local dec, err = decs.new(
     kong_request_get_method():lower(),
     kong_request_get_path(),
     conf.md5,
@@ -58,7 +57,7 @@ function grpc_gateway:access(conf)
 end
 
 
-function grpc_gateway:header_filter(conf)
+function ice_grpc_gateway:header_filter(conf)
   if kong_request_get_method() == "OPTIONS" then
     return
   end
@@ -69,7 +68,7 @@ function grpc_gateway:header_filter(conf)
 end
 
 
-function grpc_gateway:body_filter(conf)
+function ice_grpc_gateway:body_filter(conf)
   local dec = kong.ctx.plugin.dec
   if not dec then
     return
@@ -81,4 +80,4 @@ function grpc_gateway:body_filter(conf)
   ngx_arg[1] = ret
 end
 
-return grpc_gateway
+return ice_grpc_gateway

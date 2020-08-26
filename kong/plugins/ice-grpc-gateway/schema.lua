@@ -10,6 +10,8 @@ return {
             required = true,
             default = nil,
           },
+        },
+        {
           md5 = {
             type = "string",
             required = true,
