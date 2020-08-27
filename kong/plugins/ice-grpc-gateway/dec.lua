@@ -10,6 +10,7 @@ local re_gsub = ngx.re.gsub
 local re_match = ngx.re.match
 local encode_json = cjson.encode
 local setmetatable = setmetatable
+local decode_base64 = ngx.decode_base64
 
 local dec = {}
 dec.__index = dec
@@ -72,16 +73,20 @@ end
 local _md5_map = {}
 local _proto_map = {}
 local function get_proto_info(route_name, md5, proto_data)
-  local old_md5 = _proto_info[route_name]
+  local old_md5 = _md5_map[route_name]
   if old_md5 == md5 then
     return _proto_map[route_name]
   end
-
+  kong.log.info("route(", route_name, ") load proto which md5 is ", md5)
+  local proto_string = decode_base64(proto_data)
   local p = protoc.new()
-  p:addpath("/usr/local/lib/luarocks/rocks-5.1/kong-plugin-ice-grpc-gateway/include")
-  local parsed = p:parse(proto_data)
+  -- TODO version update
+  p:addpath("/usr/local/lib/luarocks/rocks-5.1/kong-plugin-ice-grpc-gateway/0.0.5-2/include")
 
-  info = {}
+  local file_name = route_name..".proto"
+  local parsed = p:parse(proto_string, file_name)
+
+  local info = {}
 
   for _, srvc in ipairs(parsed.service) do
     for _, mthd in ipairs(srvc.method) do
@@ -115,8 +120,9 @@ local function get_proto_info(route_name, md5, proto_data)
     end
   end
 
+  _md5_map[route_name] = md5
   _proto_map[route_name] = info
-  p:load(proto_data)
+  p:load(proto_string, file_name)
   return info
 end
 
@@ -127,10 +133,7 @@ local function transcode(method, path, protomd5, protodata)
 
   -- Route has only one path. This path and the name of router is same.
   local route_name = kong.router.get_route().name
-  kong.log.info("route_name", route_name)
-  local related_path = string.sub(path, string.len(route_name) + 1)
-  kong.log.info("related_path", related_path)
-
+  local related_path = string.sub(path, string.len(route_name) + 2)
   local info = get_proto_info(route_name, protomd5, protodata)
   info = info[method]
   if not info then
@@ -155,11 +158,11 @@ end
 
 function dec.new(method, path, protomd5, protodata)
   if not protodata then
-    return nil, "Transcoding requests require a .proto file defining the service"
+    return nil, "Transcoding requests require a .proto data defining the service"
   end
-  local endpoint, err = transcode(method, path, protofile)
+  local endpoint, vars = transcode(method, path, protomd5, protodata)
   if not endpoint then
-    return nil, "failed to transcode .proto file " .. err
+    return nil, "failed to transcode .proto data " .. err
   end
 
   return setmetatable({

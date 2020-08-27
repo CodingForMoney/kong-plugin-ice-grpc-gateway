@@ -1,12 +1,12 @@
 package = "kong-plugin-ice-grpc-gateway"
 
-version = "0.0.4-2"
+version = "0.0.5-2"
 
 supported_platforms = {"linux", "macosx"}
 
 source = {
   url = "git+https://git@github.com/CodingForMoney/kong-plugin-ice-grpc-gateway.git",
-  tag = "0.0.2",
+  tag = "0.0.5",
 }
 
 description = {
